@@ -36,6 +36,10 @@ MANIFEST
 pip-log.txt
 pip-delete-this-directory.txt
 
+# Local development TLS certificates
+server.pem
+server-ca.pem
+
 # Unit test / coverage reports
 htmlcov/
 .tox/
