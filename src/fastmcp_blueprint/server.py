@@ -7,6 +7,7 @@ from fastmcp.server.middleware.logging import StructuredLoggingMiddleware
 from fastmcp.server.middleware.timing import TimingMiddleware
 
 from fastmcp_blueprint.config import settings
+from fastmcp_blueprint.logging_setup import RequestContextMiddleware, install_json_handler
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +77,8 @@ async def app_lifespan(server):
     Yield a dict of shared objects (DB pools, HTTP clients, etc.) that tools
     can access via ``ctx.lifespan_context``.
     """
+    if settings.log_format == "json":
+        install_json_handler()
     logger.info("Server starting up")
     try:
         yield {}
@@ -118,9 +121,11 @@ mcp = FastMCP(
 )
 
 # Middleware executes in the order added: first in, last out.
-# ErrorHandling (outermost) catches all exceptions, Timing measures duration,
-# StructuredLogging (innermost, json-only) records the final result.
+# RequestContext (outermost) assigns request_id before any logging,
+# ErrorHandling catches all exceptions, Timing measures duration,
+# StructuredLogging (innermost, opt-in) records MCP payloads.
+mcp.add_middleware(RequestContextMiddleware())
 mcp.add_middleware(ErrorHandlingMiddleware())
 mcp.add_middleware(TimingMiddleware())
-if settings.log_format == "json":
+if settings.log_payload_enabled:
     mcp.add_middleware(StructuredLoggingMiddleware())

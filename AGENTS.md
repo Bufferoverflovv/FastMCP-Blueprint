@@ -108,7 +108,18 @@ pytest -v
 
 Set `LOG_FORMAT` to control output: `rich` (default), `plain`, or `json`.
 
-In JSON mode, FastMCP's built-in `StructuredLoggingMiddleware` is added to the server (see `server.py`). It emits structured JSON lines for every MCP request/response — tool calls, resource reads, etc. — suitable for aggregation tools like Datadog, Splunk, or ELK.
+The structured logging implementation lives in `logging_setup.py`, while `server.py` owns middleware ordering and server assembly.
+
+In JSON mode, the server installs a single JSON handler on the `fastmcp` logger and routes application logs through it. This covers:
+
+- server startup and shutdown
+- `uvicorn` access and error logs
+- tool logs emitted via `get_tool_logger()`
+- auth and application logs under the `fastmcp_blueprint` logger hierarchy
+
+Each request gets a `request_id` via `RequestContextMiddleware`, and that correlation ID is injected into downstream log records. Common secrets such as bearer tokens, JWTs, and `api_key=`/`password=` style assignments are scrubbed before emission.
+
+`StructuredLoggingMiddleware` is separately controlled by `LOG_PAYLOAD_ENABLED`. When enabled, it adds MCP protocol-level events such as `tools/call`, `resources/read`, and list operations on top of the base JSON logging.
 
 Middleware log fields (emitted per MCP request):
 
@@ -120,6 +131,18 @@ Middleware log fields (emitted per MCP request):
 | `duration_ms` | Request duration in milliseconds (on completion/error) |
 | `error` | Error message (on error only) |
 
+Additional JSON log fields emitted by the base handler may include:
+
+| Field | Description |
+|-------|-------------|
+| `timestamp` | ISO 8601 UTC timestamp with millisecond precision |
+| `level` | Python log level |
+| `logger` | Logger name |
+| `message` | Final log message after scrubbing |
+| `request_id` | Correlation ID for a single MCP request |
+| `auth_client_id` | Optional auth client identifier if populated by auth code |
+| `tool` | Tool name injected by `get_tool_logger()` |
+
 For in-tool application logs, use `get_tool_logger("tool_name")` from `server.py` — this attaches the `tool` field to log records via `ToolLoggerAdapter`.
 
 **Sample middleware JSON log:**
@@ -127,6 +150,13 @@ For in-tool application logs, use `get_tool_logger("tool_name")` from `server.py
 ```json
 {"event": "request_start", "method": "tools/call", "source": "client"}
 {"event": "request_success", "method": "tools/call", "source": "client", "duration_ms": 1.23}
+```
+
+**Sample application JSON log:**
+
+```json
+{"timestamp": "2026-04-10T06:00:00.123+00:00", "level": "INFO", "logger": "fastmcp_blueprint.server", "message": "Server starting up"}
+{"timestamp": "2026-04-10T06:00:00.456+00:00", "level": "INFO", "logger": "fastmcp_blueprint.server", "message": "whois - querying upstream", "request_id": "7d4c4b3e2c8b42fbb7a4cf75f0d5f2d0", "tool": "whois"}
 ```
 
 When adding new tools, always use `get_tool_logger("tool_name")` — this ensures the `tool` field is present in application-level structured logs.

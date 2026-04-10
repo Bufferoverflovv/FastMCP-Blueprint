@@ -5,6 +5,7 @@ import argparse
 import fastmcp
 
 from fastmcp_blueprint.config import settings
+from fastmcp_blueprint.logging_setup import route_uvicorn_to_fastmcp
 from fastmcp_blueprint.server import mcp
 
 # Import modules for side effects so decorators register routes and tools with FastMCP.
@@ -51,6 +52,8 @@ def main():
     args = parser.parse_args()
 
     _configure_log_format()
+    if settings.log_format == "json":
+        route_uvicorn_to_fastmcp()
 
     uvicorn_config = {}
     if args.ssl_certfile:

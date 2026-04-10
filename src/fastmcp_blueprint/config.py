@@ -15,11 +15,14 @@ class ServerConfig:
     port: int = field(default_factory=lambda: int(os.environ.get("PORT", "8000")))
     log_level: str = field(default_factory=lambda: os.environ.get("LOG_LEVEL", "INFO"))
     log_format: str = field(default_factory=lambda: os.environ.get("LOG_FORMAT", "rich"))
+    log_payload_enabled: bool = field(
+        default_factory=lambda: os.environ.get("LOG_PAYLOAD_ENABLED", "").lower() in ("true", "1")
+    )
     ssl_certfile: str | None = field(default_factory=lambda: os.environ.get("SSL_CERTFILE") or None)
     ssl_keyfile: str | None = field(default_factory=lambda: os.environ.get("SSL_KEYFILE") or None)
 
     name: str = field(default_factory=lambda: os.environ.get("NAME", "FastMCP-Blueprint"))
-    version: str = field(default_factory=lambda: os.environ.get("VERSION", "0.1.0"))
+    version: str = field(default_factory=lambda: os.environ.get("VERSION", "0.2.0"))
     instructions: str = field(
         default_factory=lambda: os.environ.get(
             "INSTRUCTIONS",

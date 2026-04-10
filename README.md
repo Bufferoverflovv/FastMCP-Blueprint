@@ -18,7 +18,7 @@ It gives you a clean `src`-layout Python package, environment-based configuratio
 - Sample `hello_world` tool
 - `/health` and `/ready` HTTP endpoints
 - Optional auth wiring for `remote` and `oauth_proxy`
-- Structured JSON logging support via FastMCP middleware
+- Structured JSON logging with request correlation and optional MCP payload logging
 - Local TLS certificate generation for development
 - In-memory test setup using FastMCP's client
 - Ruff formatting and linting with pre-commit integration
@@ -29,7 +29,8 @@ It gives you a clean `src`-layout Python package, environment-based configuratio
 src/fastmcp_blueprint/
 ├── __main__.py          # CLI entry point and server startup
 ├── config.py            # Environment-backed settings
-├── server.py            # FastMCP instance, auth, middleware, logging
+├── logging_setup.py     # JSON logging formatter, filters, and request context
+├── server.py            # FastMCP instance, auth, lifespan, and middleware wiring
 ├── resources/           # MCP resources
 ├── routes/              # Custom HTTP routes like health checks
 └── tools/               # MCP tools
@@ -101,6 +102,7 @@ HOST=localhost
 PORT=8000
 LOG_LEVEL=INFO
 LOG_FORMAT=rich
+#LOG_PAYLOAD_ENABLED=false
 #SSL_CERTFILE=server.pem
 #SSL_KEYFILE=
 ```
@@ -109,7 +111,7 @@ LOG_FORMAT=rich
 
 ```env
 NAME=FastMCP-Blueprint
-VERSION=0.1.0
+VERSION=0.2.0
 INSTRUCTIONS=This server provides MCP tools and resources.
 ```
 
@@ -117,7 +119,16 @@ INSTRUCTIONS=This server provides MCP tools and resources.
 
 - `rich`: FastMCP's default developer-friendly terminal logging
 - `plain`: plain text log output
-- `json`: structured request logging through `StructuredLoggingMiddleware`
+- `json`: JSON-formatted Python logs with FastMCP request logging routed through the same handler
+
+### Payload logging
+
+`LOG_PAYLOAD_ENABLED` controls whether FastMCP's `StructuredLoggingMiddleware` is enabled.
+
+- `false` (default): JSON mode still emits structured startup, tool, auth, and server logs, but MCP request payloads are not logged.
+- `true`: enables `StructuredLoggingMiddleware` so MCP request/response metadata and payload-level events are logged too.
+
+Keep payload logging disabled unless the environment is allowed to record tool arguments, resource contents, and similar request data.
 
 ## Running with TLS locally
 
@@ -274,9 +285,19 @@ This keeps the template fast to iterate on while still exercising real framework
 
 The server includes:
 
+- `RequestContextMiddleware`
 - `ErrorHandlingMiddleware`
 - `TimingMiddleware`
-- `StructuredLoggingMiddleware` when `LOG_FORMAT=json`
+- `StructuredLoggingMiddleware` when `LOG_PAYLOAD_ENABLED=true`
+
+The logging implementation lives in `src/fastmcp_blueprint/logging_setup.py`.
+
+When `LOG_FORMAT=json`:
+
+- all Python log records routed through the `fastmcp` logger hierarchy are formatted as single-line JSON
+- `uvicorn`, `fastmcp`, and `fastmcp_blueprint` logs share the same JSON handler
+- each MCP request receives a `request_id` correlation field
+- common secrets such as bearer tokens, JWTs, and `api_key=` style assignments are scrubbed before emission
 
 For tool-level logs, use `get_tool_logger("tool_name")` from `server.py` so logs include structured tool context.
 

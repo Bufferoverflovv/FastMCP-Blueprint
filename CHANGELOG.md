@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-04-10
+
+### Changed
+
+- Extracted structured logging internals into `src/fastmcp_blueprint/logging_setup.py` while keeping server assembly and middleware registration in `server.py`.
+- Updated logging documentation to describe request correlation, secret scrubbing, uvicorn log routing, and the `LOG_PAYLOAD_ENABLED` toggle for FastMCP payload logging.
+
+### Added
+
+- Request-scoped correlation IDs for MCP logs via `RequestContextMiddleware`.
+- JSON log formatting for Python log records emitted through the `fastmcp` logger hierarchy.
+- Secret scrubbing for common bearer tokens, JWTs, and `api_key=`/`password=`-style assignments.
+
 ## [0.1.0] - 2026-04-05
 
 Initial public blueprint release.
